@@ -1,11 +1,6 @@
 pipeline {
 
-  environment {
-    dockerimagename = "rawiahajri/nodeapp"
-    dockerImage = ""
-  }
-
-  agent any
+    agent any
 
   stages {
 

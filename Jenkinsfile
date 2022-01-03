@@ -1,44 +1,41 @@
+def commit_id
 pipeline {
-
     agent any
-
-  stages {
-
-    stage('Checkout Source') {
-      steps {
-        git 'https://github.com/RawiaHajri/nodeapp_test.git'
-      }
-    }
-
-    stage('Build image') {
-      steps{
-        script {
-          dockerImage = docker.build dockerimagename
+    stages {
+        stage('preparation') {
+            steps {
+                checkout scm
+                sh "git rev-parse --short HEAD > .git/commit-id"
+                script {
+                    commit_id = readFile('.git/commit-id').trim()
+                }
+            }
         }
-      }
-    }
-
-    stage('Pushing Image') {
-      environment {
-               registryCredential = 'dockerhublogin'
-           }
-      steps{
-        script {
-          docker.withRegistry( 'https://registry.hub.docker.com', registryCredential ) {
-            dockerImage.push("latest")
-          }
+	    
+	    
+        stage ('build') {
+            steps {
+                echo 'building maven workload'
+                sh "mvn clean install"
+                echo 'build complete'
+            }
         }
-      }
-    }
-
-    stage('Deploying App to Kubernetes') {
-      steps {
-        script {
-          kubernetesDeploy(configs: "deploymentservice.yml", kubeconfigId: "kubernetes")
+       stage ("image build") {
+            steps {
+                echo 'building docker image'
+                sh "docker login docker.io"
+                sh "docker build -t rawiahajri/position-simulator:${commit_id} ."
+                echo 'docker image built'
+            }
         }
-      }
+      
+        
+        	
+        stage('deploy') {
+	          steps {
+	             sh "sed -i -r 's|richardchesterwood/k8s-fleetman-position-simulator:release2|192.168.147.128:8082/position-simulator:${commit_id}|' workloads.yaml"
+	             sh "kubectl apply -f workloads.yaml"
+            }
+        }
     }
-
-  }
-
 }
